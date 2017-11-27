@@ -1,62 +1,60 @@
 import React, { Component } from 'react';
 import { Redirect } from 'react-router-dom';
-import GoogleButton from 'react-google-button';
-import Loader from 'react-loader';
-import firebase from 'firebase';
-import fire from '../utils/fire';
+import GoogleButton from '../utils/GoogleButton';
+import { graphql, compose } from 'react-apollo';
+import gql from 'graphql-tag';
+import { query } from './Navbar';
 
-const provider = new firebase.auth.GoogleAuthProvider();
+const authMutaion = gql`    
+    mutation AuthMutaion($googleToken: String!) {
+        authenticateGoogleUser(googleToken: $googleToken) {
+            token
+        }
+    }
+`;
 
-export default class Login extends Component {
+class Login extends Component {
 
     constructor() {
         super();
 
         this.state = {
             redirectToReferrer: false,
-            error: null,
-            loading: false,
-            loggedIn: false
+            error: null
         };
     }
 
-    componentDidMount() {
-        fire.auth().onAuthStateChanged(user => {
-            this.setState({
-                loggedIn: !!user
-            })
-        });
+    handleSuccess = (response) => {
+        this.props.mutate({
+            variables: { googleToken: response.token.idToken }
+        })
+            .then(({ data }) => {
+                this.props.userQuery.refetch();
+                localStorage.setItem('token', data.authenticateGoogleUser.token);
+                this.setState({
+                    redirectToReferrer: true
+                })
 
-        if(this.state.loggedIn) {
-            this.setState({
-                redirectToReferrer: true
             })
-        }
+            .catch(error => {
+                this.setState({
+                    error: error.message
+                })
+            })
     }
 
-    handleLogin() {
+    handleFailure(error){
         this.setState({
-            loading: true,
-            error: null
-        });
-
-        fire.auth().signInWithPopup(provider).then((result) => {
-            console.log('result: ', result);
-            this.setState({
-                loading: false,
-            })
-        }).catch(error => {
-            this.setState({
-                error
-            })
-        });
+            loading: false,
+            error
+        })
     }
 
     render() {
-        const { loading, error, redirectToReferrer } = this.state;
+        const { error, redirectToReferrer } = this.state;
         const { from } = this.props.location.state || { from: { pathname: '/' } };
 
-        if (this.state.loggedIn || redirectToReferrer) {
+        if (redirectToReferrer || !!localStorage.getItem('token')) {
             return (
                 <Redirect push to={from} />
             )
@@ -70,13 +68,14 @@ export default class Login extends Component {
                             <div className='page-header'>
                                 <h1>login</h1>
                             </div>
-                            <Loader loaded={!loading}>
-                                { error ? <div className="alert alert-danger">{ error.message }</div> : null}
-                                <p>You must log in to view the page at {from.pathname}</p>
-                                <GoogleButton
-                                    onClick={() => this.handleLogin()}
-                                />
-                            </Loader>
+                            { error ? <div className="alert alert-danger">{ error }</div> : null}
+                            <p>You must log in to view the page at {from.pathname}</p>
+                            <GoogleButton
+                                provider='google'
+                                appId={process.env['REACT_APP_GOOGLE_OAUTH_CLIENT_ID']}
+                                onLoginSuccess={this.handleSuccess}
+                                onLoginFailure={this.handleFailure.bind(this)}
+                            />
                         </div>
                     </div>
                 </div>
@@ -84,3 +83,8 @@ export default class Login extends Component {
         )
     }
 }
+
+export default compose(
+    graphql(authMutaion),
+    graphql(query, { name: 'userQuery' })
+)(Login);

@@ -1,54 +1,49 @@
 import React, { Component } from 'react';
-import fire from '../../utils/fire';
 import Loader from 'react-loader';
 
-export default class Table extends Component {
+import { graphql } from 'react-apollo';
+import gql from 'graphql-tag';
 
-    constructor() {
-        super();
-
-        this.state = {
-            loading: true,
-            timeRecords: [],
+const query = gql`    
+    {
+        user {
+            records {
+                id
+                date
+                description
+                startTime
+                endTime
+                project {
+                    name
+                }
+            }
         }
     }
+`;
 
-    componentWillReceiveProps(nextProps) {
-        if(nextProps.user && nextProps.user !== this.props.user) {
-            this.setState({
-                loading: true
-            });
-            fire.database().ref('timeRecords').child(nextProps.user.uid).on('value', snap => {
-                snap.forEach(timeRecord => {
-                    this.setState({
-                        timeRecords: this.state.timeRecords.concat(timeRecord.val())
-                    })
-                });
-
-                this.setState({
-                    loading: false
-                })
-            })
-        }
-    }
+class Table extends Component {
 
     renderRows() {
-        return this.state.timeRecords.map((timeRecord, i) => {
-            return (
-                <tr key={i}>
-                    <td>{timeRecord.description}</td>
-                    <td>{timeRecord.project}</td>
-                    <td>{timeRecord.startTime}</td>
-                    <td>{timeRecord.endTime}</td>
-                    <td>{timeRecord.date}</td>
-                </tr>
-            )
-        })
+        if(!this.props.data.loading && !this.props.data.error && this.props.data.user) {
+            return this.props.data.user.records.map((record) => {
+                return (
+                    <tr key={record.id}>
+                        <td>{record.description}</td>
+                        <td>{record.project.name}</td>
+                        <td>{record.startTime}</td>
+                        <td>{record.endTime}</td>
+                        <td>{record.date}</td>
+                    </tr>
+                )
+            })
+        } else {
+            return null;
+        }
     }
 
     render() {
         return (
-            <Loader loaded={!this.state.loading}>
+            <Loader loaded={!this.props.data.loading}>
                 <table className="table">
                     <thead>
                         <tr>
@@ -69,3 +64,6 @@ export default class Table extends Component {
         )
     }
 }
+
+export default graphql(query)(Table);
+export { query }

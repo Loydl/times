@@ -1,30 +1,23 @@
 import React, { Component } from 'react';
-import fire from '../utils/fire';
+import { graphql } from 'react-apollo';
+import gql from 'graphql-tag';
+import { withRouter } from 'react-router-dom';
+import { client } from './../index';
 
-export default class Navbar extends Component {
-
-    constructor() {
-        super();
-
-        this.state = {
-            user: null
+const query = gql`
+    query User {
+        user {
+            email
         }
     }
+`;
 
-    componentDidMount() {
-        fire.auth().onAuthStateChanged(user => {
-            this.setState({
-                user: user
-            })
-        });
-    }
+class Navbar extends Component {
 
     handleLogout() {
-        this.setState({
-            user: null
-        });
-
-        fire.auth().signOut()
+        localStorage.removeItem('token');
+        client.resetStore();
+        this.props.history.push('/login')
     }
 
     render() {
@@ -41,10 +34,13 @@ export default class Navbar extends Component {
                     <ul className="navbar-nav mr-auto">
                     </ul>
                     <span className="navbar-text" onClick={() => this.handleLogout()}>
-                        { this.state.user ? this.state.user.displayName : '' }
+                        { this.props.data.user && !this.props.data.loading? this.props.data.user.email : '' }
                      </span>
                 </div>
             </nav>
         )
     }
 }
+
+export default withRouter(graphql(query)(Navbar));
+export { query };

@@ -23,16 +23,63 @@ types: ./types.graphqls
 
 # Model/Relation permissions are used to limit the API access
 # To take the burden of thinking about those while development, we
-# preconfigured the wildcard ("*") permission that allows everything
+# preconfigured the wildcard ("*") permissions that allows everything
 # Read more here:
 # https://docs-next.graph.cool/reference/auth/authorization/overview-iegoo0heez
 permissions:
-  - operation: "*"
+  - operation: Record.create
+  - operation: Record.read
+    authenticated: true
+    query: ./src/permissions/readRecord.graphql
 
+  - operation: Customer.create
+    authenticated: true
+  - operation: Customer.read
+    authenticated: true
+
+  - operation: Project.create
+    authenticated: true
+  - operation: Project.read
+    authenticated: true
+
+  - operation: User.create
+  - operation: User.read
+    authenticated: true
+  - operation: User.update
+    authenticated: true
+    query: ./src/permissions/userPermission.graphql:updateUser
+
+  - operation: User.delete
+    authenticated: true
+
+  - operation: CustomerOnRecord.connect
+    authenticated: true
+
+  - operation: ProjectOnRecord.connect
+    authenticated: true
+
+  - operation: UserOnRecord.connect
+    authenticated: true
 
 # Your root tokens used for functions to get full access to the API
 # Read more here:
 # https://docs-next.graph.cool/reference/auth/authentication/authentication-tokens-eip7ahqu5o
 # rootTokens:
 #   - mytoken
+
+
+# added by google template: (please uncomment)
+functions:
+  googleAuthentication:
+    handler:
+      code:
+        src: ./src/google/googleAuthentication.ts
+    type: resolver
+    schema: ./src/google/googleAuthentication.graphql
+  loggedInUser:
+    handler:
+      code:
+        src: ./src/google/loggedInUser.ts
+    type: resolver
+    schema: ./src/google/loggedInUser.graphql
 

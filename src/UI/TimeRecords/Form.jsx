@@ -1,7 +1,76 @@
 import React, { Component } from 'react';
-import fire from '../../utils/fire';
+import { graphql, compose } from 'react-apollo';
+import gql from 'graphql-tag';
+import { AsyncCreatable, Creatable } from 'react-select';
+import { query } from './Table';
 
-export default class Form extends Component {
+const loggedInUser = gql`
+    {
+        loggedInUser{
+            id
+        }
+    }
+`;
+
+const allProjects = gql`
+    {
+        allProjects {
+            name
+            id
+        }
+    }
+`;
+
+const addRecord = gql`
+    mutation AddRecord($date: String!, $startTime: String!, $endTime: String!, $description: String!, $project: String!, $userId: ID!) {
+        createRecord(
+            date: $date
+            startTime: $startTime
+            endTime: $endTime
+            description: $description
+            project: {
+                name: $project
+            }
+            authorId: $userId
+            
+        ) {
+            id
+            date
+            startTime
+            endTime
+            description
+            project {
+                name
+                id
+            }
+        }
+    }
+`;
+
+const addRecordWithProjectId = gql`
+    mutation addRecordWithProjectId($date: String!, $startTime: String!, $endTime: String!, $description: String!, $projectId: ID!, $userId: ID!) {
+        createRecord(
+            date: $date
+            startTime: $startTime
+            endTime: $endTime
+            description: $description
+            projectId: $projectId
+            authorId: $userId
+
+        ) {
+            id
+            date
+            startTime
+            endTime
+            description
+            project {
+                name
+            }
+        }
+    }
+`;
+
+class Form extends Component {
 
     constructor() {
         super();
@@ -21,15 +90,42 @@ export default class Form extends Component {
         e.preventDefault();
         const { description, project, startTime, endTime, date } = this.state;
 
-        const timeRecordsRef = fire.database().ref('timeRecords').child(this.props.user.uid).push();
+        const mutate = project.created ? this.props.addRecord : this.props.addRecordWithProjectId;
 
-        timeRecordsRef.set({
-            description,
-            project,
+        let variables = {
             startTime,
             endTime,
-            date
+            date,
+            description,
+            userId: this.props.user.loggedInUser.id
+        };
+
+        variables = project.created ? Object.assign(variables, { project: project.value}) : Object.assign(variables, { projectId: project.value});
+
+        mutate({
+            variables,
+            update: (proxy, { data: { createRecord }}) => {
+                const data = proxy.readQuery({ query });
+                data.user.records.push(createRecord);
+                proxy.writeQuery({ query, data })
+            }
         })
+            .then(({ data }) => {
+
+            })
+            .catch(error => {
+                this.setState({
+                    error
+                })
+            });
+    }
+
+    onNewOption(value) {
+        return { value: value.label, label: value.label, created: true };
+    }
+
+    getOtions() {
+
     }
 
     render() {
@@ -42,7 +138,13 @@ export default class Form extends Component {
                     </div>
                     <div className="form-group col-md-2">
                         <label htmlFor="project">Project</label>
-                        <input type="text" className="form-control" id="project" required value={this.state.project} onChange={e => this.setState({ project: e.target.value })}/>
+                        <Creatable
+                            options={this.props.project.loading ? [] : this.props.project.allProjects.map(project => ({value: project.id, label: project.name}))}
+                            onChange={(value) => this.setState({ project: value })}
+                            newOptionCreator={this.onNewOption}
+                            value={this.state.project}
+                            required
+                        />
                     </div>
                     <div className="form-group col-md-2">
                         <label htmlFor="startTime">Start Time</label>
@@ -65,3 +167,10 @@ export default class Form extends Component {
         )
     }
 }
+
+export default compose(
+    graphql(addRecord, { name: 'addRecord' }),
+    graphql(addRecordWithProjectId, { name: 'addRecordWithProjectId' }),
+    graphql(loggedInUser, { name: 'user' }),
+    graphql(allProjects, { name: 'project' })
+)(Form)
