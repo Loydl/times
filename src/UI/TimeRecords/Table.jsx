@@ -1,38 +1,73 @@
 import React, { Component } from 'react';
 import Loader from 'react-loader';
-
-import { graphql } from 'react-apollo';
+import { graphql, compose } from 'react-apollo';
 import gql from 'graphql-tag';
 
 const query = gql`    
     {
-        user {
-            records {
-                id
-                date
-                description
-                startTime
-                endTime
-                project {
-                    name
+        allTimesrecords {
+            edges {
+                node {
+                    id
+                    headline
+                    projectByProjectId {
+                        name
+                    }
+                    timeRange {
+                        start {
+                            value
+                        }
+                        end {
+                            value
+                        }
+                    }
                 }
             }
         }
     }
 `;
 
+const deleteTimerecord = gql`
+    mutation DeleteTimerecord($id: Int!) {
+        deleteTimesrecordById(input: { id: $id}) {
+            deletedTimesrecordId
+        }
+    }
+`;
+
+
 class Table extends Component {
 
+    deleteTimerecord(id) {
+        this.props.mutate({
+            variables: {
+                id
+            },
+            update: (proxy) => {
+                const data = proxy.readQuery({ query });
+                const index = data.allTimesrecords.edges.findIndex(edge => edge.node.id === id);
+                if (index > -1) data.allTimesrecords.edges.splice(index, 1);
+                proxy.writeQuery({ query, data })
+            }
+        })
+            .then(res => {
+                console.log(res)
+            })
+            .catch(err => {
+                console.error(err)
+            });
+    }
+
     renderRows() {
-        if(!this.props.data.loading && !this.props.data.error && this.props.data.user) {
-            return this.props.data.user.records.map((record) => {
+        if(!this.props.data.loading && !this.props.data.error && this.props.data.allTimesrecords) {
+            return this.props.data.allTimesrecords.edges.map(({ node }) => {
                 return (
-                    <tr key={record.id}>
-                        <td>{record.description}</td>
-                        <td>{record.project.name}</td>
-                        <td>{record.startTime}</td>
-                        <td>{record.endTime}</td>
-                        <td>{record.date}</td>
+                    <tr key={node.id}>
+                        <td>{node.headline}</td>
+                        <td>{node.projectByProjectId.name}</td>
+                        <td>{node.timeRange.start.value}</td>
+                        <td>{node.timeRange.end.value}</td>
+                        <td><button className="btn btn-primary" onClick={() => this.deleteTimerecord(node.id)}>X</button></td>
                     </tr>
                 )
             })
@@ -51,7 +86,6 @@ class Table extends Component {
                             <th scope="col">Project</th>
                             <th scope="col">Start Time</th>
                             <th scope="col">End Time</th>
-                            <th scope="col">Date</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,5 +99,8 @@ class Table extends Component {
     }
 }
 
-export default graphql(query)(Table);
+export default compose(
+    graphql(deleteTimerecord),
+    graphql(query)
+)(Table);
 export { query }

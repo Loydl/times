@@ -6,8 +6,9 @@ import { client } from './../index';
 
 const query = gql`
     query User {
-        user {
-            email
+        currentUser{
+            fullName
+            id
         }
     }
 `;
@@ -34,7 +35,7 @@ class Navbar extends Component {
                     <ul className="navbar-nav mr-auto">
                     </ul>
                     <span className="navbar-text" onClick={() => this.handleLogout()}>
-                        { this.props.data.user && !this.props.data.loading? this.props.data.user.email : '' }
+                        { this.props.data.currentUser && !this.props.data.loading? this.props.data.currentUser.fullName : '' }
                      </span>
                 </div>
             </nav>

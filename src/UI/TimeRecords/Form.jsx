@@ -1,13 +1,15 @@
 import React, { Component } from 'react';
 import { graphql, compose } from 'react-apollo';
 import gql from 'graphql-tag';
-import { AsyncCreatable, Creatable } from 'react-select';
+import moment from 'moment';
+import { Creatable } from 'react-select';
 import { query } from './Table';
 
-const loggedInUser = gql`
+const currentUser = gql`
     {
-        loggedInUser{
+        currentUser {
             id
+            businessunitId
         }
     }
 `;
@@ -15,57 +17,38 @@ const loggedInUser = gql`
 const allProjects = gql`
     {
         allProjects {
-            name
-            id
-        }
-    }
-`;
-
-const addRecord = gql`
-    mutation AddRecord($date: String!, $startTime: String!, $endTime: String!, $description: String!, $project: String!, $userId: ID!) {
-        createRecord(
-            date: $date
-            startTime: $startTime
-            endTime: $endTime
-            description: $description
-            project: {
-                name: $project
-            }
-            authorId: $userId
-            
-        ) {
-            id
-            date
-            startTime
-            endTime
-            description
-            project {
-                name
-                id
+            edges {
+                node {
+                    id
+                    name
+                }
             }
         }
     }
 `;
 
-const addRecordWithProjectId = gql`
-    mutation addRecordWithProjectId($date: String!, $startTime: String!, $endTime: String!, $description: String!, $projectId: ID!, $userId: ID!) {
-        createRecord(
-            date: $date
-            startTime: $startTime
-            endTime: $endTime
-            description: $description
-            projectId: $projectId
-            authorId: $userId
-
-        ) {
-            id
-            date
-            startTime
-            endTime
-            description
-            project {
-                name
+const createTimesrecord = gql`
+    mutation createTimerecordWithProjectId($input: TimesrecordInput!) {
+        createTimesrecord(
+            input: {
+                timesrecord: $input
             }
+        ) {
+           timesrecord {
+               id
+               headline
+               projectByProjectId {
+                   name
+               }
+               timeRange {
+                   start {
+                       value
+                   }
+                   end {
+                       value
+                   }
+               }
+           }
         }
     }
 `;
@@ -90,29 +73,37 @@ class Form extends Component {
         e.preventDefault();
         const { description, project, startTime, endTime, date } = this.state;
 
-        const mutate = project.created ? this.props.addRecord : this.props.addRecordWithProjectId;
-
         let variables = {
-            startTime,
-            endTime,
-            date,
-            description,
-            userId: this.props.user.loggedInUser.id
+            input: {
+                projectId: project.value,
+                authorId: this.props.user.currentUser.id,
+                body: "body",
+                businessunitId: this.props.user.currentUser.businessunitId,
+                headline: description,
+                timeRange: {
+                    start: {
+                        value: moment(`${date} ${startTime}`, 'YYYY-MM-DD HH:mm').toISOString(),
+                        inclusive: true
+                    },
+                    end: {
+                        value: moment(`${date} ${endTime}`, 'YYYY-MM-DD HH:mm').toISOString(),
+                        inclusive: false
+                    }
+                }
+            }
         };
 
-        variables = project.created ? Object.assign(variables, { project: project.value}) : Object.assign(variables, { projectId: project.value});
-
-        mutate({
+       this.props.createTimerecord({
             variables,
-            update: (proxy, { data: { createRecord }}) => {
+            update: (proxy, { data: { createTimesrecord }}) => {
                 const data = proxy.readQuery({ query });
-                data.user.records.push(createRecord);
+                data.allTimesrecords.edges.push({
+                    node: createTimesrecord.timesrecord,
+                    __typename: "TimesrecordsEdge"
+                });
                 proxy.writeQuery({ query, data })
             }
         })
-            .then(({ data }) => {
-
-            })
             .catch(error => {
                 this.setState({
                     error
@@ -122,10 +113,6 @@ class Form extends Component {
 
     onNewOption(value) {
         return { value: value.label, label: value.label, created: true };
-    }
-
-    getOtions() {
-
     }
 
     render() {
@@ -139,7 +126,7 @@ class Form extends Component {
                     <div className="form-group col-md-2">
                         <label htmlFor="project">Project</label>
                         <Creatable
-                            options={this.props.project.loading ? [] : this.props.project.allProjects.map(project => ({value: project.id, label: project.name}))}
+                            options={this.props.project.loading ? [] : this.props.project.allProjects.edges.map(({ node }) => ({value: node.id, label: node.name}))}
                             onChange={(value) => this.setState({ project: value })}
                             newOptionCreator={this.onNewOption}
                             value={this.state.project}
@@ -169,8 +156,7 @@ class Form extends Component {
 }
 
 export default compose(
-    graphql(addRecord, { name: 'addRecord' }),
-    graphql(addRecordWithProjectId, { name: 'addRecordWithProjectId' }),
-    graphql(loggedInUser, { name: 'user' }),
+    graphql(createTimesrecord, { name: 'createTimerecord' }),
+    graphql(currentUser, { name: 'user' }),
     graphql(allProjects, { name: 'project' })
 )(Form)
