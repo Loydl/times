@@ -1,5 +1,0 @@
-query updateUser {
-    SomeUserExists(filter: {
-        role: ADMIN
-    })
-}

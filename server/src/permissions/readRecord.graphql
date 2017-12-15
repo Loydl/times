@@ -1,8 +1,0 @@
-query ReadRecordQuery($node_id: ID!, $user_id: ID!) {
-    SomeRecordExists(filter: {
-        id: $node_id
-        author: {
-            id: $user_id
-        }
-    })
-}
