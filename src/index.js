@@ -30,7 +30,7 @@ const authLink = setContext((_, { headers }) => {
 
     const decoded = token ? jwtDecode(token) : {};
 
-    if(decoded.exp > new Date().getTime()) {
+    if(decoded.exp < new Date().getTime() / 1000) {
         localStorage.removeItem('token');
         history.push('/login')
     }
