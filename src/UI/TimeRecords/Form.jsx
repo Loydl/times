@@ -53,6 +53,26 @@ const createTimesrecord = gql`
     }
 `;
 
+
+const createProject = gql`
+    mutation createProject($name: String!, $businessUnitId: Int!) {
+        createProject(
+            input: {
+                project: {
+                    name: $name
+                    customerId: 4
+                    businessunitId: $businessUnitId
+                }
+            }
+        ) {
+            project {
+                id
+            }
+        }
+    }
+`;
+
+
 class Form extends Component {
 
     constructor() {
@@ -69,13 +89,28 @@ class Form extends Component {
     }
 
 
-    handleSubmit(e) {
+    async handleSubmit(e) {
         e.preventDefault();
         const { description, project, startTime, endTime, date } = this.state;
 
+        let response = {};
+
+        if(project.created) {
+            const data = await this.props.createProject({
+                variables: {
+                    name: project.value,
+                    businessUnitId: this.props.user.currentUser.businessunitId
+                }
+            });
+
+            response.projectId = data.data.createProject.project.id
+        }
+
+
+
         let variables = {
             input: {
-                projectId: project.value,
+                projectId: response.projectId ? response.projectId : project.value,
                 authorId: this.props.user.currentUser.id,
                 body: "body",
                 businessunitId: this.props.user.currentUser.businessunitId,
@@ -104,7 +139,18 @@ class Form extends Component {
                 proxy.writeQuery({ query, data })
             }
         })
-            .catch(error => {
+           .then(res => {
+               console.log(res)
+               this.setState({
+                   description: '',
+                   project: '',
+                   startTime: '',
+                   endTime: '',
+                   date: '',
+                   error: null
+               })
+           })
+           .catch(error => {
                 this.setState({
                     error
                 })
@@ -157,6 +203,7 @@ class Form extends Component {
 
 export default compose(
     graphql(createTimesrecord, { name: 'createTimerecord' }),
+    graphql(createProject, { name: 'createProject' }),
     graphql(currentUser, { name: 'user' }),
     graphql(allProjects, { name: 'project' })
 )(Form)
